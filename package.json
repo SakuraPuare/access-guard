@@ -1,0 +1,45 @@
+{
+  "name": "access-guard",
+  "version": "0.1.0",
+  "description": "Multi-layer developer access control for build tools. Detect OS username, Git identity, and match against a blocklist to deny unauthorized access at build time and runtime.",
+  "type": "module",
+  "exports": {
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.mjs",
+      "require": "./dist/vite.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "access-control",
+    "blocklist",
+    "vite-plugin",
+    "build-guard",
+    "developer-access"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "vite": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
+  }
+}
