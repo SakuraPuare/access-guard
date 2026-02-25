@@ -6,7 +6,7 @@
   "exports": {
     "./vite": {
       "types": "./dist/vite.d.ts",
-      "import": "./dist/vite.mjs",
+      "import": "./dist/vite.js",
       "require": "./dist/vite.cjs"
     }
   },
@@ -39,7 +39,7 @@
     "@types/node": "^25.3.0",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
-    "vite": "^6.0.0",
+    "vite": "^7.3.1",
     "vitest": "^3.0.0"
   }
 }

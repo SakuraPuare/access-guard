@@ -1,4 +1,3 @@
-import type { Plugin } from 'vite'
 import { detectIdentity, matchBlocklist } from './core'
 import { generateGuardScript } from './html'
 
@@ -9,7 +8,8 @@ export interface AccessGuardOptions {
   silent?: boolean
 }
 
-export default function accessGuard(options: AccessGuardOptions): Plugin {
+// Return `any` to avoid vite Plugin type version conflicts between consumer and library
+export default function accessGuard(options: AccessGuardOptions): any {
   const { blocklist, silent = false } = options
 
   if (!blocklist || blocklist.length === 0) {
