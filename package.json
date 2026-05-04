@@ -1,6 +1,6 @@
 {
   "name": "access-guard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-layer developer access control for build tools. Detect OS username, Git identity, and match against a blocklist to deny unauthorized access at build time and runtime.",
   "type": "module",
   "exports": {
