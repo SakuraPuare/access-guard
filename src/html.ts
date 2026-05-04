@@ -1,3 +1,19 @@
+import type { UserIdentity } from './core'
+
+interface RuntimeIdentitySource {
+  global?: string
+  globals?: string[]
+  endpoint?: string
+  timeoutMs?: number
+}
+
+export interface GuardScriptOptions {
+  identity?: Partial<UserIdentity>
+  blocklist: string[]
+  silent: boolean
+  runtime?: RuntimeIdentitySource | false
+}
+
 export function generateDenialHtml(keyword: string, silent: boolean): string {
   const detail = silent
     ? ''
@@ -28,28 +44,134 @@ export function generateDenialHtml(keyword: string, silent: boolean): string {
 </html>`
 }
 
-/** Generate an inline script that checks identity at runtime in the browser */
+/** Generate an inline script that checks available identity at runtime before app code runs. */
 export function generateGuardScript(
-  identity: { osUsername: string; gitName: string; gitEmail: string },
-  blocklist: string[],
-  silent: boolean,
+  identityOrOptions: Partial<UserIdentity> | GuardScriptOptions,
+  blocklist?: string[],
+  silent?: boolean,
 ): string {
+  const options = Array.isArray(blocklist)
+    ? { identity: identityOrOptions as Partial<UserIdentity>, blocklist, silent: Boolean(silent) }
+    : (identityOrOptions as GuardScriptOptions)
+
+  const runtime = options.runtime === false ? false : options.runtime || {}
+  const runtimeGlobals = normalizeRuntimeGlobals(runtime)
+  const timeoutMs = typeof runtime === 'object' && runtime.timeoutMs ? runtime.timeoutMs : 700
+
   return `<script>
 (function(){
-  var id=${JSON.stringify([identity.osUsername, identity.gitName, identity.gitEmail])};
-  var bl=${JSON.stringify(blocklist.map(k => k.trim().toLowerCase()).filter(Boolean))};
-  for(var i=0;i<bl.length;i++){
-    for(var j=0;j<id.length;j++){
-      if(id[j]&&id[j].toLowerCase().indexOf(bl[i])!==-1){
-        document.open();
-        document.write(${JSON.stringify(generateDenialHtml('__KW__', silent))}.replace('__KW__',bl[i]));
-        document.close();
-        return;
+  var buildIdentity=${JSON.stringify(options.identity || {})};
+  var blocklist=${JSON.stringify(options.blocklist.map(k => k.trim().toLowerCase()).filter(Boolean))};
+  var denialHtml=${JSON.stringify(generateDenialHtml('__KW__', options.silent))};
+  var runtimeGlobals=${JSON.stringify(runtimeGlobals)};
+  var endpoint=${JSON.stringify(typeof runtime === 'object' ? runtime.endpoint || '' : '')};
+  var timeoutMs=${JSON.stringify(timeoutMs)};
+
+  function deny(keyword){
+    document.open();
+    document.write(denialHtml.replace('__KW__', keyword));
+    document.close();
+  }
+
+  function match(identity){
+    if(!identity) return '';
+    var values=[];
+    if(Array.isArray(identity)) values=identity;
+    else if(typeof identity==='object'){
+      for(var key in identity){
+        if(Object.prototype.hasOwnProperty.call(identity,key)) values.push(identity[key]);
+      }
+    } else values=[identity];
+
+    for(var i=0;i<blocklist.length;i++){
+      for(var j=0;j<values.length;j++){
+        var value=values[j];
+        if(value==null) continue;
+        if(String(value).toLowerCase().indexOf(blocklist[i])!==-1) return blocklist[i];
       }
     }
+    return '';
   }
+
+  function readBrowserIdentity(){
+    var nav=window.navigator||{};
+    var screen=window.screen||{};
+    var timezone='';
+    try { timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||''; } catch (_) {}
+    return {
+      userAgent: nav.userAgent||'',
+      platform: nav.platform||'',
+      language: nav.language||'',
+      languages: Array.isArray(nav.languages)?nav.languages.join(','):'',
+      hardwareConcurrency: nav.hardwareConcurrency?String(nav.hardwareConcurrency):'',
+      deviceMemory: nav.deviceMemory?String(nav.deviceMemory):'',
+      maxTouchPoints: nav.maxTouchPoints?String(nav.maxTouchPoints):'',
+      vendor: nav.vendor||'',
+      timezone: timezone,
+      screen: screen.width&&screen.height ? String(screen.width)+'x'+String(screen.height) : '',
+      colorDepth: screen.colorDepth?String(screen.colorDepth):'',
+      pixelDepth: screen.pixelDepth?String(screen.pixelDepth):'',
+      devicePixelRatio: window.devicePixelRatio?String(window.devicePixelRatio):'',
+      host: window.location&&window.location.host||''
+    };
+  }
+
+  function readGlobalIdentity(){
+    for(var i=0;i<runtimeGlobals.length;i++){
+      var current=window;
+      var parts=runtimeGlobals[i].split('.');
+      for(var j=0;j<parts.length&&current;j++) current=current[parts[j]];
+      if(current){
+        if(typeof current==='function'){
+          try { current=current(); } catch (_) { current=null; }
+        }
+        if(current) return Promise.resolve(current);
+      }
+    }
+    return Promise.resolve(null);
+  }
+
+  function fetchIdentity(){
+    if(!endpoint||!window.fetch) return Promise.resolve(null);
+    var controller=window.AbortController?new AbortController():null;
+    var timer=controller?setTimeout(function(){ controller.abort(); }, timeoutMs):null;
+    return fetch(endpoint,{credentials:'same-origin',cache:'no-store',signal:controller&&controller.signal})
+      .then(function(response){ return response&&response.ok?response.json():null; })
+      .catch(function(){ return null; })
+      .then(function(value){ if(timer) clearTimeout(timer); return value; });
+  }
+
+  var matched=match(buildIdentity)||match(readBrowserIdentity());
+  if(matched){ deny(matched); return; }
+
+  Promise.resolve()
+    .then(readGlobalIdentity)
+    .then(function(identity){
+      matched=match(identity);
+      if(matched){ deny(matched); return null; }
+      return fetchIdentity();
+    })
+    .then(function(identity){
+      if(!identity) return;
+      matched=match(identity);
+      if(matched) deny(matched);
+    });
 })();
 </script>`
+}
+
+function normalizeRuntimeGlobals(runtime: RuntimeIdentitySource | false): string[] {
+  if (runtime === false) return []
+
+  const globals = [
+    ...(runtime.globals || []),
+    runtime.global || '',
+    'accessGuardIdentity',
+    'electronAccessGuardIdentity',
+    'apolloAccessGuardIdentity',
+  ]
+
+  return [...new Set(globals.map(value => value.trim()).filter(Boolean))]
 }
 
 function escapeHtml(str: string): string {

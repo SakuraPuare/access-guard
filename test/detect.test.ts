@@ -1,12 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { detectIdentity } from '../src/core/detect'
+import { detectIdentity, normalizeIdentity } from '../src/core/detect'
 
 describe('detectIdentity', () => {
-  it('returns an object with osUsername, gitName, gitEmail', () => {
+  it('returns all supported identity fields', () => {
     const identity = detectIdentity()
     expect(identity).toHaveProperty('osUsername')
     expect(identity).toHaveProperty('gitName')
     expect(identity).toHaveProperty('gitEmail')
+    expect(identity).toHaveProperty('hostname')
+    expect(identity).toHaveProperty('homedir')
+    expect(identity).toHaveProperty('platform')
+    expect(identity).toHaveProperty('arch')
+    expect(identity).toHaveProperty('release')
+    expect(identity).toHaveProperty('machineId')
+    expect(identity).toHaveProperty('envUser')
   })
 
   it('osUsername is a non-empty string', () => {
@@ -15,9 +22,10 @@ describe('detectIdentity', () => {
     expect(identity.osUsername.length).toBeGreaterThan(0)
   })
 
-  it('gitName and gitEmail are strings', () => {
-    const identity = detectIdentity()
-    expect(typeof identity.gitName).toBe('string')
-    expect(typeof identity.gitEmail).toBe('string')
+  it('normalizes partial identities', () => {
+    const identity = normalizeIdentity({ osUsername: 'alice' })
+    expect(identity.osUsername).toBe('alice')
+    expect(identity.gitEmail).toBe('')
+    expect(identity.machineId).toBe('')
   })
 })

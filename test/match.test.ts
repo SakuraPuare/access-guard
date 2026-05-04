@@ -6,6 +6,13 @@ const identity: UserIdentity = {
   osUsername: 'john-doe',
   gitName: 'John Doe',
   gitEmail: 'john@example.com',
+  hostname: 'johns-macbook',
+  homedir: '/Users/john-doe',
+  platform: 'darwin',
+  arch: 'arm64',
+  release: '25.0.0',
+  machineId: 'sha256:abc123',
+  envUser: 'john',
 }
 
 describe('matchBlocklist', () => {
@@ -32,6 +39,12 @@ describe('matchBlocklist', () => {
     const result = matchBlocklist(identity, ['@example.com'])
     expect(result.matched).toBe(true)
     expect(result.field).toBe('gitEmail')
+  })
+
+  it('matches host and machine fields', () => {
+    expect(matchBlocklist(identity, ['macbook']).field).toBe('hostname')
+    expect(matchBlocklist(identity, ['abc123']).field).toBe('machineId')
+    expect(matchBlocklist(identity, ['/users/john']).field).toBe('homedir')
   })
 
   it('is case-insensitive', () => {
@@ -66,14 +79,36 @@ describe('matchBlocklist', () => {
   })
 
   it('handles identity with empty fields', () => {
-    const partial: UserIdentity = { osUsername: 'user', gitName: '', gitEmail: '' }
+    const partial: UserIdentity = {
+      osUsername: 'user',
+      gitName: '',
+      gitEmail: '',
+      hostname: '',
+      homedir: '',
+      platform: '',
+      arch: '',
+      release: '',
+      machineId: '',
+      envUser: '',
+    }
     const result = matchBlocklist(partial, ['user'])
     expect(result.matched).toBe(true)
     expect(result.field).toBe('osUsername')
   })
 
   it('does not match empty identity fields', () => {
-    const empty: UserIdentity = { osUsername: '', gitName: '', gitEmail: '' }
+    const empty: UserIdentity = {
+      osUsername: '',
+      gitName: '',
+      gitEmail: '',
+      hostname: '',
+      homedir: '',
+      platform: '',
+      arch: '',
+      release: '',
+      machineId: '',
+      envUser: '',
+    }
     const result = matchBlocklist(empty, ['anything'])
     expect(result.matched).toBe(false)
   })

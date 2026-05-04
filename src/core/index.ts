@@ -1,4 +1,4 @@
-export { detectIdentity } from './detect'
-export type { UserIdentity } from './detect'
-export { matchBlocklist } from './match'
+export { detectIdentity, normalizeIdentity } from './detect'
+export type { IdentityField, UserIdentity } from './detect'
+export { IDENTITY_FIELDS, matchBlocklist } from './match'
 export type { MatchResult } from './match'
